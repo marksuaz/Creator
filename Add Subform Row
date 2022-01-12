@@ -1,0 +1,20 @@
+// declaring the row
+<row1> = <mainForm_linkName>.<subForm_linkName>();
+
+// assigning values for various subform fields in the row
+<row1>.<field_linkName> = <value>;
+<row1>.<field_linkName> = <value>;
+
+// declaring another row (declare as many rows as required)
+<row2> = <mainForm_linkName>.<subForm_linkName>();
+
+// assigning values for various subform fields in the row
+<row2>.<field_linkName> = <value>;
+<row2>.<field_linkName> = <value>;
+
+// declare a variable to hold the collection of rows
+<variable> = Collection();
+<variable>.insert( <row1>, <row2> );
+
+// insert the rows into the subform through the variable
+input.<subForm_linkName>.insert( <variable> );
