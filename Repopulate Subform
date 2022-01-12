@@ -1,0 +1,25 @@
+void Utilities.SubformDeleteRows(int Ticket_ID, int Related_Record_ID)
+{
+	// 1. Save any subform rows that match your criteria/conditional in a collection
+	// 2. Clear the subform: input.<subForm_linkName>.clear();
+	// 3. Repopulate the subform with the remaining rows of the collection
+	//
+	TicketToUpdate = Tickets[ID = Ticket_ID];
+	//
+	UpdatedSetofRows = Collection();
+	for each  SubformRow in TicketToUpdate.Work_Notes_Subform
+	{
+		if(SubformRow.Work_Note_Related_Record_ID != Related_Record_ID)
+		{
+			SaveThisRow = Tickets.Work_Notes_Subform();
+			SaveThisRow.Work_Note_Related_Record_ID = SubformRow.Work_Note_Related_Record_ID;
+			SaveThisRow.Work_Note_ID = SubformRow.Work_Note_ID;
+			SaveThisRow.Work_Note_Type = SubformRow.Work_Note_Type;
+			SaveThisRow.Work_Note = SubformRow.Work_Note;
+			SaveThisRow.Work_Note_Response = SubformRow.Work_Note_Response;
+			UpdatedSetofRows.insert(SaveThisRow);
+		}
+	}
+	TicketToUpdate.Work_Notes_Subform.clear();
+	TicketToUpdate.Work_Notes_Subform.insert(UpdatedSetofRows);
+}
