@@ -1,0 +1,360 @@
+if(Pay_Summary_Import != "")
+{
+	summaryContent = input.Pay_Summary_Import.content;
+	//Turn it into a list of rows
+	lstContent = summaryContent.toList("\n");
+	// bln trigger for the Payroll Date
+	dateNext = false;
+	// bln trigger for the main table
+	start = false;
+	//Parse each row
+	for each  recRow in lstContent
+	{
+		// start parsing if bln has been triggered
+		oldFields = List();
+		//Split the row into a list again but this time on commas (or what ever your variable separator is)			
+		oldFields = recRow.toList(",");
+		//Remove blank elements to avoid conversion errors
+		lstFields = List();
+		for each  ele in oldFields
+		{
+			if(trim(ele) = "")
+			{
+				lstFields.add("0");
+			}
+			else
+			{
+				lstFields.add(ele);
+			}
+		}
+		if(start = false)
+		{
+			// set journal date if date bln has been triggered
+			if(dateNext = true)
+			{
+				payrollDate = lstFields.get(0);
+				payrollDate = payrollDate.toDate("MMM-yy");
+				payrollDate = payrollDate.eomonth(0);
+				dateNext = false;
+			}
+			// trigger date bln (Must come after the trigger functions)
+			if(recRow.contains("Employee Pay Totals"))
+			{
+				dateNext = true;
+			}
+			// find title line and trigger table bln, and get indexes of the headings
+			if(recRow.contains("Tax Code"))
+			{
+				start = true;
+				empNameID = lstFields.indexOf("    Employee");
+				taxCodeID = lstFields.indexOf("  Tax Code");
+				totalPaymentsID = lstFields.indexOf("  Total Payments");
+				basicPayID = lstFields.indexOf("  Basic Pay");
+				totalHourlyPayID = lstFields.indexOf("Total Hourly Pay");
+				totalHoursID = lstFields.indexOf("  Total Hours");
+				totalAdditionsID = lstFields.indexOf("  Total Additions");
+				sickPayID = lstFields.indexOf("  Sick Pay");
+				parentingPayID = lstFields.indexOf("  Parenting Pay");
+				aegonEeContID = lstFields.indexOf("AEGON Employee Contribution");
+				aegonQsContID = lstFields.indexOf("AEGON QS Employee Contribution");
+				studentLoadID = lstFields.indexOf("Student Loan Repayment");
+				postgradLoanID = lstFields.indexOf("Postgrad Loan Repayment");
+				attachID = lstFields.indexOf("    Attachments");
+				payrollGivingID = lstFields.indexOf("  Payroll Giving");
+				childcareEeID = lstFields.indexOf("Childcare from employee");
+				totalDeductionsID = lstFields.indexOf("  Total Deductions");
+				overPaymentID = lstFields.indexOf("  Over- Payment");
+				eeNICID = lstFields.indexOf("  Employee NIC");
+				taxDeductedID = lstFields.indexOf("  Tax Deducted");
+				netPayID = lstFields.indexOf("  Tax Deducted") + 1;
+			}
+		}
+		else
+		{
+			if(lstFields.size() > 2 && lstFields.get(empNameID) != "Total")
+			{
+				if(lstFields.get(totalPaymentsID) != "0")
+				{
+					employee = Employee_Details[Import_Name = lstFields.get(empNameID)];
+					if(employee.ID = null)
+					{
+						empCheck = thisapp.identifyEmployee(trim(lstFields.get(empNameID)));
+						empLookup = Employee_Details[ID == empCheck];
+						if(empLookup.ID = null)
+						{
+							emp = null;
+							if(empCheck = 0)
+							{
+								info "No matching Employee found for " + lstFields.get(empNameID);
+							}
+							else if(empCheck = 2)
+							{
+								info "More than one matching Employee found for " + lstFields.get(empNameID);
+							}
+						}
+						else
+						{
+							empLookup.Import_Name=lstFields.get(empNameID);
+							emp = empLookup.ID;
+						}
+					}
+					else
+					{
+						emp = employee.ID;
+					}
+					//trim Net Pay as it is the last element in the list
+					netPay = lstFields.get(netPayID).trim();
+					netPay = netPay.toDecimal();
+					newPay = insert into Pay_Details
+					[
+						Added_User=zoho.loginuser
+						Employee_Name=emp
+						Employee_NIC=lstFields.get(eeNICID)
+						Journal_Date=payrollDate.toDate()
+						Tax_Code=lstFields.get(taxCodeID).trim()
+						Employee_Import_Name=lstFields.get(empNameID)
+						Total_Payments=lstFields.get(totalPaymentsID)
+						AEGON_Employee_Contribution=lstFields.get(aegonEeContID)
+						AEGON_QS_Employee_Contribution=lstFields.get(aegonQsContID)
+						Attachments=lstFields.get(attachID)
+						Basic_Pay=lstFields.get(basicPayID)
+						Childcare_from_employee=lstFields.get(childcareEeID)
+						Over_Payment=lstFields.get(overPaymentID)
+						Parenting_Pay=lstFields.get(parentingPayID)
+						Payroll_Giving=lstFields.get(payrollGivingID)
+						Postgrad_Loan_Repayment=lstFields.get(postgradLoanID)
+						Sick_Pay=lstFields.get(sickPayID)
+						Student_Loan_Repayment=lstFields.get(studentLoadID)
+						Tax_Deducted=lstFields.get(taxDeductedID)
+						Total_Deductions=lstFields.get(totalDeductionsID)
+						Total_Hourly_Pay=lstFields.get(totalHourlyPayID)
+						Total_Hours=lstFields.get(totalHoursID)
+						Total_Additions=lstFields.get(totalAdditionsID)
+						Net_Pay=netPay
+					];
+					if(lstFields.get(totalAdditionsID) != 0)
+					{
+						newAdd = insert into Pay_Additions
+						[
+							Added_User=zoho.loginuser
+							Employee=lstFields.get(empNameID)
+							Employee_Details=emp
+							Pay_Details=newPay
+							Payroll_Date=payrollDate.toDate()
+						];
+					}
+					if(lstFields.get(totalDeductionsID) != 0)
+					{
+						newDed = insert into Pay_Deductions
+						[
+							Added_User=zoho.loginuser
+							Employee=lstFields.get(empNameID)
+							Employee_Details=emp
+							Pay_Details=newPay
+							Payroll_Date=payrollDate.toDate()
+						];
+					}
+				}
+			}
+		}
+	}
+}
+if(Additions_Import != "")
+{
+	summaryContent = input.Additions_Import.content;
+	//Turn it into a list of rows
+	lstContent = summaryContent.toList("\n");
+	// bln trigger for the main table
+	start = false;
+	//Parse each row
+	for each  recRow in lstContent
+	{
+		// start parsing if bln has been triggered
+		oldFields = List();
+		//Split the row into a list again but this time on commas (or what ever your variable separator is)			
+		oldFields = recRow.toList(",");
+		//Remove blank elements to avoid conversion errors
+		lstFields = List();
+		for each  ele in oldFields
+		{
+			if(trim(ele) = "")
+			{
+				lstFields.add("0");
+			}
+			else
+			{
+				lstFields.add(ele);
+			}
+		}
+		if(start = false)
+		{
+			// find title line and trigger table bln, and get indexes of the headings. Ignore the columns that are included on main table
+			if(recRow.contains("Sick Pay"))
+			{
+				start = true;
+				empNameID = lstFields.indexOf("    Employee");
+				holidayID = lstFields.indexOf("  Holiday Pay");
+				roundingID = lstFields.indexOf("  Rounding Addition");
+				sundriesID = lstFields.indexOf("    Sundries");
+				weekID = lstFields.indexOf("Week in Lieu(Do Not Use)");
+				salary2ID = lstFields.indexOf("  SALARY 2");
+				overnightID = lstFields.indexOf("  O/night Stays");
+				carID = lstFields.indexOf("  Car Allowance");
+				xmasID = lstFields.indexOf("  Christmas Gift");
+				redundancyID = lstFields.indexOf("  Redundancy Pay");
+				covidID = lstFields.indexOf("  SSP C-Virus");
+				furloughID = lstFields.indexOf("    Furlough");
+				Hol20ID = lstFields.indexOf("20% Hol Pay");
+				exgratiaID = lstFields.indexOf("    Ex-Gratia");
+				weekinlieuID = lstFields.indexOf("Week in Lieu");
+				totalAddID = lstFields.indexOf("Week in Lieu") + 1;
+			}
+		}
+		else
+		{
+			if(lstFields.size() > 2 && lstFields.get(empNameID) != "Total")
+			{
+				if(lstFields.get(totalAddID) != "0")
+				{
+					addpay = Pay_Additions[Employee == lstFields.get(empNameID) && Payroll_Date == payrollDate.toDate()];
+					addpay.Holiday_Pay=lstFields.get(holidayID);
+					addpay.Rounding_Addition=lstFields.get(roundingID);
+					addpay.Sundries=lstFields.get(sundriesID);
+					addpay.Week_in_Lieu_Do_Not_Use=lstFields.get(weekID);
+					addpay.SALARY_2=lstFields.get(salary2ID);
+					addpay.O_night_Stays=lstFields.get(overnightID);
+					addpay.Car_Allowance=lstFields.get(carID);
+					addpay.Christmas_Gift=lstFields.get(xmasID);
+					addpay.Redundancy_Pay=lstFields.get(redundancyID);
+					addpay.SSP_C_Virus=lstFields.get(covidID);
+					addpay.Furlough=lstFields.get(furloughID);
+					addpay.Hol_Pay=lstFields.get(Hol20ID);
+					addpay.Ex_Gratia=lstFields.get(exgratiaID);
+					addpay.Week_in_Lieu=lstFields.get(weekinlieuID);
+				}
+			}
+		}
+	}
+}
+if(Deductions_Import != "")
+{
+	summaryContent = input.Deductions_Import.content;
+	//Turn it into a list of rows
+	lstContent = summaryContent.toList("\n");
+	// bln trigger for the main table
+	start = false;
+	//Parse each row
+	for each  recRow in lstContent
+	{
+		// start parsing if bln has been triggered
+		oldFields = List();
+		//Split the row into a list again but this time on commas (or what ever your variable separator is)			
+		oldFields = recRow.toList(",");
+		//Remove blank elements to avoid conversion errors
+		lstFields = List();
+		for each  ele in oldFields
+		{
+			if(trim(ele) = "")
+			{
+				lstFields.add("0");
+			}
+			else
+			{
+				lstFields.add(ele);
+			}
+		}
+		if(start = false)
+		{
+			// find title line and trigger table bln, and get indexes of the headings. Ignore the columns that are included on main table
+			if(recRow.contains("AEGON"))
+			{
+				start = true;
+				empNameID = lstFields.indexOf("    Employee");
+				overID = lstFields.indexOf("  Over- Payment");
+				holFundID = lstFields.indexOf("Holiday Fund Contribution");
+				loanID = lstFields.indexOf("  Loans Repayment");
+				roundDedID = lstFields.indexOf("  Rounding Deduction");
+				salDedID = lstFields.indexOf("  SALARY DEDUCTION");
+				unionID = lstFields.indexOf("    Union");
+				mileageID = lstFields.indexOf("  Private Mileage");
+				sundriesDedID = lstFields.indexOf("    Sundries");
+				cycleID = lstFields.indexOf("Cycle to Work");
+				totalDedID = lstFields.indexOf("Cycle to Work") + 1;
+			}
+		}
+		else
+		{
+			if(lstFields.size() > 2 && lstFields.get(empNameID) != "Total")
+			{
+				if(lstFields.get(overID).toDecimal() + lstFields.get(holFundID).toDecimal() + lstFields.get(loanID).toDecimal() + lstFields.get(roundDedID).toDecimal() + lstFields.get(salDedID).toDecimal() + lstFields.get(salDedID).toDecimal() + lstFields.get(unionID).toDecimal() + lstFields.get(mileageID).toDecimal() + lstFields.get(sundriesDedID).toDecimal() + lstFields.get(cycleID).toDecimal() > 0)
+				{
+					dedpay = Pay_Deductions[Employee == lstFields.get(empNameID) && Payroll_Date == payrollDate.toDate()];
+					dedpay.Over_Payment=lstFields.get(overID);
+					dedpay.Holiday_Fund_Contribution=lstFields.get(holFundID);
+					dedpay.Loans_Repayment=lstFields.get(loanID);
+					dedpay.Rounding_Deduction=lstFields.get(roundDedID);
+					dedpay.Salary_Deduction=lstFields.get(salDedID);
+					dedpay.Union=lstFields.get(unionID);
+					dedpay.Private_Mileage=lstFields.get(mileageID);
+					dedpay.Sundries=lstFields.get(sundriesDedID);
+					dedpay.Cycle_to_Work=lstFields.get(cycleID);
+				}
+			}
+		}
+	}
+}
+if(Tax_Summary_Import != "")
+{
+	summaryContent = input.Tax_Summary_Import.content;
+	//Turn it into a list of rows
+	lstContent = summaryContent.toList("\n");
+	// bln trigger for the main table
+	start = false;
+	//Parse each row
+	for each  recRow in lstContent
+	{
+		// start parsing if bln has been triggered
+		oldFields = List();
+		//Split the row into a list again but this time on commas (or what ever your variable separator is)			
+		oldFields = recRow.toList(",");
+		//Remove blank elements to avoid conversion errors
+		lstFields = List();
+		for each  ele in oldFields
+		{
+			if(trim(ele) = "")
+			{
+				lstFields.add("0");
+			}
+			else
+			{
+				lstFields.add(ele);
+			}
+		}
+		if(start = false)
+		{
+			// find title line and trigger table bln, and get indexes of the headings. Ignore the columns that are included on main table
+			if(recRow.contains("Total Pay"))
+			{
+				start = true;
+				empNameID = lstFields.indexOf("    Employee");
+				nicErID = lstFields.indexOf("  Employer NIC");
+				pensionErID = lstFields.indexOf("Total Employer Pension");
+				childcareErID = lstFields.indexOf("Childcare from employer");
+				totPayID = lstFields.indexOf("  Total Pay");
+			}
+		}
+		else
+		{
+			if(lstFields.size() > 2 && lstFields.get(empNameID) != "Total")
+			{
+				if(lstFields.get(totPayID) != "0")
+				{
+					payCost = Pay_Details[Employee_Import_Name == lstFields.get(empNameID) && Journal_Date == payrollDate.toDate()];
+					payCost.Employer_NIC=lstFields.get(nicErID);
+					payCost.Employer_Pension=lstFields.get(pensionErID);
+					payCost.Childcare_from_Employer=lstFields.get(childcareErID);
+				}
+			}
+		}
+	}
+}
